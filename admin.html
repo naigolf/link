@@ -2,98 +2,223 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <title>Link Manager Admin</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Link Manager Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
-        body { font-family: sans-serif; padding: 20px; background: #f4f4f4; }
-        .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        input, button { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
-        button { background: #28a745; color: white; border: none; cursor: pointer; }
-        .link-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #eee; }
-        #loginSection { text-align: center; }
-        #adminSection { display: none; }
-        .btn-del { background: #dc3545; width: auto; padding: 5px 10px; }
+        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .navbar-brand { font-weight: bold; color: #0d6efd; }
+        .card { border: none; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .btn-action { padding: 5px 10px; border-radius: 8px; }
+        #loginSection { height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .login-card { width: 100%; max-width: 400px; padding: 2rem; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div id="loginSection">
-        <h2>Admin Login</h2>
-        <input type="password" id="githubToken" placeholder="ใส่ GitHub Personal Access Token">
-        <p style="font-size: 12px; color: gray;">Token จะถูกเก็บไว้ใน Browser ของคุณเท่านั้น</p>
-        <button onclick="login()">เข้าสู่ระบบ</button>
+<div id="loginSection">
+    <div class="card login-card text-center">
+        <i class="bi bi-link-45deg d-block mb-3 text-primary" style="font-size: 3rem;"></i>
+        <h3 class="mb-4">Link Manager Login</h3>
+        <input type="password" id="githubToken" class="form-control mb-3" placeholder="GitHub Personal Access Token">
+        <button class="btn btn-primary w-100 shadow-sm" onclick="login()">เข้าสู่ระบบ</button>
+        <p class="text-muted mt-3 small">รหัสจะถูกเก็บใน Browser ของคุณเท่านั้น</p>
     </div>
+</div>
 
-    <div id="adminSection">
-        <h2>จัดการลิ้งก์ย่อ</h2>
-        <input type="text" id="newKey" placeholder="ชื่อย่อ (เช่น myapp)">
-        <input type="text" id="newUrl" placeholder="ลิ้งก์ยาว (https://...)">
-        <button onclick="addLink()">เพิ่มลิ้งก์</button>
-        <hr>
-        <div id="linkList">กำลังโหลดข้อมูล...</div>
-        <button style="background:#6c757d" onclick="logout()">ออกจากระบบ</button>
+<div id="adminSection" style="display:none;">
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm mb-4">
+        <div class="container">
+            <span class="navbar-brand"><i class="bi bi-speedometer2 me-2"></i>Link Dashboard</span>
+            <button class="btn btn-outline-danger btn-sm" onclick="logout()"><i class="bi bi-box-arrow-right"></i> ออกจากระบบ</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card bg-primary text-white p-4 mb-3">
+                    <h6 class="text-uppercase mb-1">ลิ้งก์ทั้งหมด</h6>
+                    <h2 id="totalLinks" class="mb-0">0</h2>
+                </div>
+            </div>
+            <div class="col-md-8 text-end d-flex align-items-center justify-content-end">
+                <button class="btn btn-success shadow-sm" onclick="showAddModal()">
+                    <i class="bi bi-plus-circle me-1"></i> สร้างลิ้งก์ใหม่
+                </button>
+            </div>
+        </div>
+
+        <div class="card overflow-hidden">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ชื่อย่อ (ID)</th>
+                            <th>ลิ้งก์ปลายทาง</th>
+                            <th>สร้างเมื่อ</th>
+                            <th class="text-center">คลิก</th>
+                            <th class="text-end">จัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="linkList">
+                        </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 
 <script>
-    let GITHUB_DATA = { token: '', user: 'naigolf', repo: 'link', sha: '' };
+    // ตั้งค่าข้อมูลโปรเจกต์ของคุณที่นี่
+    const CONFIG = {
+        user: 'ชื่อยูสเซอร์ของคุณ', 
+        repo: 'ชื่อโปรเจกต์ของคุณ'
+    };
+
+    let GITHUB_DATA = { token: '', sha: '' };
 
     function login() {
         GITHUB_DATA.token = document.getElementById('githubToken').value;
-        if (GITHUB_DATA.token) {
-            loadLinks();
-            document.getElementById('loginSection').style.display = 'none';
-            document.getElementById('adminSection').style.display = 'block';
+        if (!GITHUB_DATA.token) return Swal.fire('Error', 'กรุณาใส่ Token', 'error');
+        
+        Swal.fire({ title: 'กำลังโหลด...', didOpen: () => Swal.showLoading() });
+        loadLinks(true);
+    }
+
+    async function loadLinks(isFirstLoad = false) {
+        try {
+            const url = `https://api.github.com/repos/${CONFIG.user}/${CONFIG.repo}/contents/links.json`;
+            const res = await fetch(url, { headers: { 'Authorization': `token ${GITHUB_DATA.token}` } });
+            
+            if (!res.ok) throw new Error('Token ไม่ถูกต้อง หรือหาไฟล์ไม่เจอ');
+            
+            const file = await res.json();
+            GITHUB_DATA.sha = file.sha;
+            const links = JSON.parse(atob(file.content));
+            
+            renderTable(links);
+            document.getElementById('totalLinks').innerText = Object.keys(links).length;
+
+            if (isFirstLoad) {
+                Swal.close();
+                document.getElementById('loginSection').style.display = 'none';
+                document.getElementById('adminSection').style.display = 'block';
+            }
+            return links;
+        } catch (err) {
+            Swal.fire('Error', err.message, 'error');
         }
     }
 
-    async function loadLinks() {
-        const url = `https://api.github.com/repos/${GITHUB_DATA.user}/${GITHUB_DATA.repo}/contents/links.json`;
-        const res = await fetch(url);
-        const file = await res.json();
-        GITHUB_DATA.sha = file.sha;
-        const links = JSON.parse(atob(file.content));
-        
+    function renderTable(links) {
         let html = '';
+        const baseURL = `https://${CONFIG.user}.github.io/${CONFIG.repo}/?id=`;
+        
         for (let key in links) {
-            html += `<div class="link-item">
-                        <span><strong>${key}</strong> -> ${links[key].substring(0,20)}...</span>
-                        <button class="btn-del" onclick="deleteLink('${key}')">ลบ</button>
-                     </div>`;
+            const item = typeof links[key] === 'string' ? { url: links[key], created: '-', clicks: 0 } : links[key];
+            html += `
+                <tr>
+                    <td><span class="badge bg-light text-primary fs-6">${key}</span></td>
+                    <td class="text-muted small" style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${item.url}</td>
+                    <td>${item.created || '-'}</td>
+                    <td class="text-center"><span class="badge rounded-pill bg-info text-dark">${item.clicks || 0}</span></td>
+                    <td class="text-end">
+                        <button class="btn btn-outline-secondary btn-sm btn-action me-1" onclick="copyLink('${baseURL}${key}')" title="Copy Link">
+                            <i class="bi bi-clipboard"></i>
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm btn-action" onclick="deleteLink('${key}')">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                </tr>`;
         }
-        document.getElementById('linkList').innerHTML = html;
-        return links;
+        document.getElementById('linkList').innerHTML = html || '<tr><td colspan="5" class="text-center py-4 text-muted">ยังไม่มีข้อมูล</td></tr>';
+    }
+
+    async function showAddModal() {
+        const { value: formValues } = await Swal.fire({
+            title: 'สร้างลิ้งก์ใหม่',
+            html:
+                '<input id="swal-key" class="swal2-input" placeholder="ชื่อย่อ (ID)">' +
+                '<input id="swal-url" class="swal2-input" placeholder="ลิ้งก์ปลายทาง (https://...)">',
+            focusConfirm: false,
+            showCancelButton: true,
+            confirmButtonText: 'บันทึก',
+            preConfirm: () => {
+                return [
+                    document.getElementById('swal-key').value.trim().toLowerCase(),
+                    document.getElementById('swal-url').value.trim()
+                ]
+            }
+        });
+
+        if (formValues && formValues[0] && formValues[1]) {
+            saveLink(formValues[0], formValues[1]);
+        }
+    }
+
+    async function saveLink(key, targetUrl) {
+        Swal.fire({ title: 'กำลังบันทึก...', didOpen: () => Swal.showLoading() });
+        const links = await loadLinks();
+        
+        const now = new Date();
+        const timestamp = now.getFullYear() + "-" + (now.getMonth()+1).toString().padStart(2, '0') + "-" + now.getDate().toString().padStart(2, '0') + " " + now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
+
+        links[key] = {
+            url: targetUrl,
+            created: timestamp,
+            clicks: 0
+        };
+
+        await updateGitHub(links);
+    }
+
+    async function deleteLink(key) {
+        const result = await Swal.fire({
+            title: 'ยืนยันการลบ?',
+            text: `ต้องการลบลิ้งก์ ${key} ใช่หรือไม่?`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33'
+        });
+
+        if (result.isConfirmed) {
+            Swal.fire({ title: 'กำลังลบ...', didOpen: () => Swal.showLoading() });
+            const links = await loadLinks();
+            delete links[key];
+            await updateGitHub(links);
+        }
     }
 
     async function updateGitHub(newLinks) {
-        const url = `https://api.github.com/repos/${GITHUB_DATA.user}/${GITHUB_DATA.repo}/contents/links.json`;
+        const url = `https://api.github.com/repos/${CONFIG.user}/${CONFIG.repo}/contents/links.json`;
         const body = {
-            message: "Update links via Admin Dash",
-            content: btoa(JSON.stringify(newLinks, null, 2)),
+            message: "Manage links via Dashboard",
+            content: btoa(unescape(encodeURIComponent(JSON.stringify(newLinks, null, 2)))),
             sha: GITHUB_DATA.sha
         };
+
         const res = await fetch(url, {
             method: 'PUT',
             headers: { 'Authorization': `token ${GITHUB_DATA.token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
         });
-        if (res.ok) { alert('บันทึกสำเร็จ! รอ GitHub อัปเดตประมาณ 1 นาที'); loadLinks(); }
+
+        if (res.ok) {
+            Swal.fire('สำเร็จ!', 'ข้อมูลถูกบันทึกแล้ว รอระบบอัปเดต 1 นาที', 'success');
+            loadLinks();
+        } else {
+            Swal.fire('Error', 'ไม่สามารถบันทึกข้อมูลได้', 'error');
+        }
     }
 
-    async function addLink() {
-        const key = document.getElementById('newKey').value;
-        const target = document.getElementById('newUrl').value;
-        if (!key || !target) return;
-        const links = await loadLinks();
-        links[key] = target;
-        updateGitHub(links);
-    }
-
-    async function deleteLink(key) {
-        if (!confirm('ยืนยันการลบ?')) return;
-        const links = await loadLinks();
-        delete links[key];
-        updateGitHub(links);
+    function copyLink(text) {
+        navigator.clipboard.writeText(text).then(() => {
+            Swal.fire({ icon: 'success', title: 'คัดลอกลิ้งก์แล้ว!', timer: 1000, showConfirmButton: false });
+        });
     }
 
     function logout() { location.reload(); }

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <title>Link Manager Admin</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #f4f4f4; }
+        .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        input, button { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        button { background: #28a745; color: white; border: none; cursor: pointer; }
+        .link-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #eee; }
+        #loginSection { text-align: center; }
+        #adminSection { display: none; }
+        .btn-del { background: #dc3545; width: auto; padding: 5px 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="loginSection">
+        <h2>Admin Login</h2>
+        <input type="password" id="githubToken" placeholder="ใส่ GitHub Personal Access Token">
+        <p style="font-size: 12px; color: gray;">Token จะถูกเก็บไว้ใน Browser ของคุณเท่านั้น</p>
+        <button onclick="login()">เข้าสู่ระบบ</button>
+    </div>
+
+    <div id="adminSection">
+        <h2>จัดการลิ้งก์ย่อ</h2>
+        <input type="text" id="newKey" placeholder="ชื่อย่อ (เช่น myapp)">
+        <input type="text" id="newUrl" placeholder="ลิ้งก์ยาว (https://...)">
+        <button onclick="addLink()">เพิ่มลิ้งก์</button>
+        <hr>
+        <div id="linkList">กำลังโหลดข้อมูล...</div>
+        <button style="background:#6c757d" onclick="logout()">ออกจากระบบ</button>
+    </div>
+</div>
+
+<script>
+    let GITHUB_DATA = { token: '', user: 'ชื่อยูสเซอร์ของคุณ', repo: 'ชื่อโปรเจกต์ของคุณ', sha: '' };
+
+    function login() {
+        GITHUB_DATA.token = document.getElementById('githubToken').value;
+        if (GITHUB_DATA.token) {
+            loadLinks();
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('adminSection').style.display = 'block';
+        }
+    }
+
+    async function loadLinks() {
+        const url = `https://api.github.com/repos/${GITHUB_DATA.user}/${GITHUB_DATA.repo}/contents/links.json`;
+        const res = await fetch(url);
+        const file = await res.json();
+        GITHUB_DATA.sha = file.sha;
+        const links = JSON.parse(atob(file.content));
+        
+        let html = '';
+        for (let key in links) {
+            html += `<div class="link-item">
+                        <span><strong>${key}</strong> -> ${links[key].substring(0,20)}...</span>
+                        <button class="btn-del" onclick="deleteLink('${key}')">ลบ</button>
+                     </div>`;
+        }
+        document.getElementById('linkList').innerHTML = html;
+        return links;
+    }
+
+    async function updateGitHub(newLinks) {
+        const url = `https://api.github.com/repos/${GITHUB_DATA.user}/${GITHUB_DATA.repo}/contents/links.json`;
+        const body = {
+            message: "Update links via Admin Dash",
+            content: btoa(JSON.stringify(newLinks, null, 2)),
+            sha: GITHUB_DATA.sha
+        };
+        const res = await fetch(url, {
+            method: 'PUT',
+            headers: { 'Authorization': `token ${GITHUB_DATA.token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        if (res.ok) { alert('บันทึกสำเร็จ! รอ GitHub อัปเดตประมาณ 1 นาที'); loadLinks(); }
+    }
+
+    async function addLink() {
+        const key = document.getElementById('newKey').value;
+        const target = document.getElementById('newUrl').value;
+        if (!key || !target) return;
+        const links = await loadLinks();
+        links[key] = target;
+        updateGitHub(links);
+    }
+
+    async function deleteLink(key) {
+        if (!confirm('ยืนยันการลบ?')) return;
+        const links = await loadLinks();
+        delete links[key];
+        updateGitHub(links);
+    }
+
+    function logout() { location.reload(); }
+</script>
+</body>
+</html>

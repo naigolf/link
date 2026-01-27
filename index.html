@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Redirecting...</title>
+    <script>
+        // ฟังก์ชันอ่านค่าจาก URL Parameter (?id=...)
+        const urlParams = new URLSearchParams(window.location.search);
+        const linkId = urlParams.get('id');
+
+        if (linkId) {
+            fetch('links.json')
+                .then(response => response.json())
+                .then(data => {
+                    if (data[linkId]) {
+                        window.location.href = data[linkId]; // ส่งไปยังลิ้งก์ยาว
+                    } else {
+                        document.body.innerHTML = "<h1>ไม่พบลิ้งก์นี้</h1>";
+                    }
+                });
+        } else {
+            window.location.href = "admin.html"; // ถ้าไม่มี id ให้ไปหน้าจัดการ
+        }
+    </script>
+</head>
+<body>
+    กำลังพาท่านไปยังจุดหมาย...
+</body>
+</html>

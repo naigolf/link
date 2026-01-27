@@ -12,7 +12,7 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data[linkId]) {
-                        window.location.href = data[linkId]; // ส่งไปยังลิ้งก์ยาว
+                        window.location.href = typeof data[linkId] === 'string' ? data[linkId] : data[linkId].url; // ส่งไปยังลิ้งก์ยาว
                     } else {
                         document.body.innerHTML = "<h1>ไม่พบลิ้งก์นี้</h1>";
                     }
